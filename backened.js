@@ -30,16 +30,39 @@ app.post("/add-donor", async (req, res) => {
   try {
     const d = req.body;
 
+    // STEP 1: Check existing donor by phone or aadhaar
+    const existing = await db.query(
+      "SELECT * FROM donors WHERE phone = $1 OR aadhaar = $2 ORDER BY created_at DESC LIMIT 1",
+      [d.phone, d.aadhaar]
+    );
+
+    // STEP 2: If exists, check 3-month rule
+    if (existing.rows.length > 0) {
+      const lastDate = new Date(existing.rows[0].created_at);
+      const now = new Date();
+
+      const monthsDiff =
+        (now.getFullYear() - lastDate.getFullYear()) * 12 +
+        (now.getMonth() - lastDate.getMonth());
+
+      if (monthsDiff < 3) {
+        return res.json({
+          message: "❌ You can donate again after 3 months"
+        });
+      }
+    }
+
+    // STEP 3: Insert new donor
     await db.query(
       "INSERT INTO donors (name, age, blood, phone, city, aadhaar) VALUES ($1,$2,$3,$4,$5,$6)",
       [d.name, d.age, d.blood, d.phone, d.city, d.aadhaar]
     );
 
-    res.json({ message: "Donor Added ✅" });
+    res.json({ message: "Donor Registered Successfully ✅" });
 
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: "Error adding donor ❌" });
+    res.status(500).json({ message: "Server Error ❌" });
   }
 });
 
