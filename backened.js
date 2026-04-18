@@ -97,12 +97,15 @@ app.delete("/delete-donor/:id", async (req, res) => {
 ========================= */
 app.get("/search", async (req, res) => {
   try {
-    let blood = req.query.blood?.trim().toUpperCase().replace(/\s+/g, "");
-    let city = req.query.city?.trim().toLowerCase();
+    let blood = req.query.blood || "";
+    let city = req.query.city || "";
+
+    blood = blood.trim().toUpperCase().replace(/\s+/g, "");
+    city = city.trim().toLowerCase();
 
     const result = await db.query(
       `SELECT * FROM donors 
-       WHERE UPPER(REPLACE(TRIM(blood),' ','')) = $1
+       WHERE UPPER(REPLACE(REPLACE(TRIM(blood),' ',''),'PLUS','+')) = $1
        AND LOWER(TRIM(city)) = $2`,
       [blood, city]
     );
@@ -114,7 +117,6 @@ app.get("/search", async (req, res) => {
     res.status(500).json([]);
   }
 });
-
 /* =========================
    REQUEST BLOOD
 ========================= */
