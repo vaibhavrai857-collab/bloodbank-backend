@@ -1,118 +1,137 @@
 const express = require("express");
 const cors = require("cors");
-const mysql = require("mysql2");
+const { Pool } = require("pg");
 require("dotenv").config();
 
 const app = express();
 
-/* ================= MIDDLEWARE ================= */
-app.use(cors({
-  origin: "*"
-}));
+app.use(cors());
 app.use(express.json());
 
-/* ================= PLANETSCALE CONNECTION ================= */
-const db = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  ssl: { rejectUnauthorized: true }
+/* =========================
+   NEON POSTGRES CONNECTION
+========================= */
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
-/* SAFE DB CONNECT */
-db.connect((err) => {
-  if (err) {
-    console.log("❌ DB Connection Failed:", err.message);
-  } else {
-    console.log("✅ PlanetScale Connected");
+/* =========================
+   HEALTH CHECK
+========================= */
+app.get("/", (req, res) => {
+  res.send("Blood Bank API Running 🚀");
+});
+
+/* =========================
+   ADD DONOR
+========================= */
+app.post("/add-donor", async (req, res) => {
+  try {
+    const d = req.body;
+
+    await db.query(
+      "INSERT INTO donors (name, age, blood, phone, city, aadhaar) VALUES ($1,$2,$3,$4,$5,$6)",
+      [d.name, d.age, d.blood, d.phone, d.city, d.aadhaar]
+    );
+
+    res.json({ message: "Donor Added ✅" });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Error adding donor ❌" });
   }
 });
 
-/* ================= HEALTH CHECK ================= */
-app.get("/", (req, res) => {
-  res.send("Blood Bank API Running ✅");
+/* =========================
+   GET ALL DONORS
+========================= */
+app.get("/donors", async (req, res) => {
+  try {
+    const result = await db.query("SELECT * FROM donors ORDER BY id DESC");
+    res.json(result.rows);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json([]);
+  }
 });
 
-/* ================= API ================= */
-
-// ADD DONOR
-app.post("/add-donor", (req, res) => {
-  const d = req.body;
-
-  const sql =
-    "INSERT INTO donors (name, age, blood, phone, city, aadhaar) VALUES (?,?,?,?,?,?)";
-
-  db.query(sql, [d.name, d.age, d.blood, d.phone, d.city, d.aadhaar], (err) => {
-    if (err) {
-      return res.status(500).json({ message: "Error adding donor ❌" });
-    }
-    res.json({ message: "Donor Added ✅" });
-  });
-});
-
-// GET DONORS
-app.get("/donors", (req, res) => {
-  db.query("SELECT * FROM donors", (err, data) => {
-    if (err) return res.json([]);
-    res.json(data);
-  });
-});
-
-// DELETE DONOR
-app.delete("/delete-donor/:id", (req, res) => {
-  db.query("DELETE FROM donors WHERE id=?", [req.params.id], (err) => {
-    if (err) return res.status(500).json({ message: "Delete failed ❌" });
-
+/* =========================
+   DELETE DONOR
+========================= */
+app.delete("/delete-donor/:id", async (req, res) => {
+  try {
+    await db.query("DELETE FROM donors WHERE id=$1", [req.params.id]);
     res.json({ message: "Deleted ✅" });
-  });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Delete failed ❌" });
+  }
 });
 
-// SEARCH DONOR
-app.get("/search", (req, res) => {
-  const { blood, city } = req.query;
+/* =========================
+   SEARCH DONOR
+========================= */
+app.get("/search", async (req, res) => {
+  try {
+    const { blood, city } = req.query;
 
-  db.query(
-    "SELECT * FROM donors WHERE blood=? AND city=?",
-    [blood, city],
-    (err, data) => {
-      if (err) return res.json([]);
-      res.json(data);
-    }
-  );
+    const result = await db.query(
+      "SELECT * FROM donors WHERE blood=$1 AND city=$2",
+      [blood, city]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json([]);
+  }
 });
 
-// BLOOD REQUEST
-app.post("/request-blood", (req, res) => {
-  const r = req.body;
+/* =========================
+   BLOOD REQUEST
+========================= */
+app.post("/request-blood", async (req, res) => {
+  try {
+    const r = req.body;
 
-  db.query(
-    "INSERT INTO requests (name, blood, phone, city) VALUES (?,?,?,?)",
-    [r.name, r.blood, r.phone, r.city],
-    (err) => {
-      if (err) return res.status(500).json({ message: "Error ❌" });
+    await db.query(
+      "INSERT INTO requests (name, blood, phone, city) VALUES ($1,$2,$3,$4)",
+      [r.name, r.blood, r.phone, r.city]
+    );
 
-      res.json({ message: "Request Saved ✅" });
-    }
-  );
+    res.json({ message: "Request Saved ✅" });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Error saving request ❌" });
+  }
 });
 
-// COUNTS
-app.get("/count-donors", (req, res) => {
-  db.query("SELECT COUNT(*) AS total FROM donors", (err, data) => {
-    res.json(data[0]);
-  });
+/* =========================
+   COUNTS
+========================= */
+app.get("/count-donors", async (req, res) => {
+  try {
+    const result = await db.query("SELECT COUNT(*) FROM donors");
+    res.json({ total: result.rows[0].count });
+  } catch (err) {
+    res.json({ total: 0 });
+  }
 });
 
-app.get("/count-requests", (req, res) => {
-  db.query("SELECT COUNT(*) AS total FROM requests", (err, data) => {
-    res.json(data[0]);
-  });
+app.get("/count-requests", async (req, res) => {
+  try {
+    const result = await db.query("SELECT COUNT(*) FROM requests");
+    res.json({ total: result.rows[0].count });
+  } catch (err) {
+    res.json({ total: 0 });
+  }
 });
 
-/* ================= START SERVER ================= */
+/* =========================
+   START SERVER
+========================= */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("🚀 Server running on port " + PORT);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
