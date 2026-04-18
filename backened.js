@@ -97,12 +97,11 @@ app.delete("/delete-donor/:id", async (req, res) => {
 ========================= */
 app.get("/search", async (req, res) => {
   try {
-    const { blood, city } = req.query;
+    const blood = req.query.blood?.trim();
+    const city = req.query.city?.trim();
 
     const result = await db.query(
-      `SELECT * FROM donors 
-       WHERE LOWER(blood) = LOWER($1)
-       AND LOWER(city) = LOWER($2)`,
+      "SELECT * FROM donors WHERE LOWER(blood) = LOWER($1) AND LOWER(city) = LOWER($2)",
       [blood, city]
     );
 
