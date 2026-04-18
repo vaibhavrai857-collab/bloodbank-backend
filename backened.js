@@ -101,12 +101,12 @@ app.get("/search", async (req, res) => {
     let city = req.query.city || "";
 
     blood = blood.trim().toUpperCase().replace(/\s+/g, "");
-    city = city.trim().toLowerCase();
+    city = city.trim().toLowerCase().replace(/\s+/g, "");
 
     const result = await db.query(
       `SELECT * FROM donors 
-       WHERE UPPER(REPLACE(REPLACE(TRIM(blood),' ',''),'PLUS','+')) = $1
-       AND LOWER(TRIM(city)) = $2`,
+       WHERE UPPER(REPLACE(REGEXP_REPLACE(TRIM(blood),'\\s+','','g'),'PLUS','+')) = $1
+       AND LOWER(REGEXP_REPLACE(TRIM(city),'\\s+','','g')) = $2`,
       [blood, city]
     );
 
