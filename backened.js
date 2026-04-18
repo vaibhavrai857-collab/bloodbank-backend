@@ -72,19 +72,23 @@ app.delete("/delete-donor/:id", async (req, res) => {
    SEARCH DONOR
 ========================= */
 app.get("/search", async (req, res) => {
-  try {
-    const { blood, city } = req.query;
+    try {
+        const blood = req.query.blood;
+        const city = req.query.city;
 
-    const result = await db.query(
-      "SELECT * FROM donors WHERE blood=$1 AND city=$2",
-      [blood, city]
-    );
+        const result = await db.query(
+            `SELECT * FROM donors 
+             WHERE LOWER(blood) = LOWER($1)
+             AND LOWER(city) = LOWER($2)`,
+            [blood, city]
+        );
 
-    res.json(result.rows);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json([]);
-  }
+        res.json(result.rows);
+
+    } catch (err) {
+        console.log("SEARCH ERROR:", err);
+        res.status(500).json([]);
+    }
 });
 
 /* =========================
