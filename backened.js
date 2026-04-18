@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 /* =========================
-   NEON POSTGRES CONNECTION
+   NEON DB CONNECTION
 ========================= */
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -36,6 +36,7 @@ app.post("/add-donor", async (req, res) => {
     );
 
     res.json({ message: "Donor Added ✅" });
+
   } catch (err) {
     console.log(err);
     res.status(500).json({ message: "Error adding donor ❌" });
@@ -43,7 +44,7 @@ app.post("/add-donor", async (req, res) => {
 });
 
 /* =========================
-   GET ALL DONORS
+   GET DONORS
 ========================= */
 app.get("/donors", async (req, res) => {
   try {
@@ -61,10 +62,10 @@ app.get("/donors", async (req, res) => {
 app.delete("/delete-donor/:id", async (req, res) => {
   try {
     await db.query("DELETE FROM donors WHERE id=$1", [req.params.id]);
-    res.json({ message: "Deleted ✅" });
+    res.json({ message: "Donor Deleted ✅" });
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: "Delete failed ❌" });
+    res.status(500).json({ message: "Delete Failed ❌" });
   }
 });
 
@@ -72,27 +73,26 @@ app.delete("/delete-donor/:id", async (req, res) => {
    SEARCH DONOR
 ========================= */
 app.get("/search", async (req, res) => {
-    try {
-        const blood = req.query.blood;
-        const city = req.query.city;
+  try {
+    const { blood, city } = req.query;
 
-        const result = await db.query(
-            `SELECT * FROM donors 
-             WHERE LOWER(blood) = LOWER($1)
-             AND LOWER(city) = LOWER($2)`,
-            [blood, city]
-        );
+    const result = await db.query(
+      `SELECT * FROM donors 
+       WHERE LOWER(blood) = LOWER($1)
+       AND LOWER(city) = LOWER($2)`,
+      [blood, city]
+    );
 
-        res.json(result.rows);
+    res.json(result.rows);
 
-    } catch (err) {
-        console.log("SEARCH ERROR:", err);
-        res.status(500).json([]);
-    }
+  } catch (err) {
+    console.log(err);
+    res.status(500).json([]);
+  }
 });
 
 /* =========================
-   BLOOD REQUEST
+   REQUEST BLOOD
 ========================= */
 app.post("/request-blood", async (req, res) => {
   try {
@@ -104,30 +104,36 @@ app.post("/request-blood", async (req, res) => {
     );
 
     res.json({ message: "Request Saved ✅" });
+
   } catch (err) {
     console.log(err);
-    res.status(500).json({ message: "Error saving request ❌" });
+    res.status(500).json({ message: "Error ❌" });
   }
 });
 
 /* =========================
-   COUNTS
+   GET REQUESTS
 ========================= */
-app.get("/count-donors", async (req, res) => {
+app.get("/requests", async (req, res) => {
   try {
-    const result = await db.query("SELECT COUNT(*) FROM donors");
-    res.json({ total: result.rows[0].count });
+    const result = await db.query("SELECT * FROM requests ORDER BY id DESC");
+    res.json(result.rows);
   } catch (err) {
-    res.json({ total: 0 });
+    console.log(err);
+    res.status(500).json([]);
   }
 });
 
-app.get("/count-requests", async (req, res) => {
+/* =========================
+   DELETE REQUEST
+========================= */
+app.delete("/delete-request/:id", async (req, res) => {
   try {
-    const result = await db.query("SELECT COUNT(*) FROM requests");
-    res.json({ total: result.rows[0].count });
+    await db.query("DELETE FROM requests WHERE id=$1", [req.params.id]);
+    res.json({ message: "Request Deleted ✅" });
   } catch (err) {
-    res.json({ total: 0 });
+    console.log(err);
+    res.status(500).json({ message: "Delete Failed ❌" });
   }
 });
 
