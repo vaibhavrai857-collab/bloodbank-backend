@@ -258,3 +258,36 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+/* =========================
+   ADD HOSPITAL
+========================= */
+app.post("/add-hospital", async (req, res) => {
+  try {
+    const h = req.body;
+
+    await db.query(
+      `
+      INSERT INTO hospitals
+      (hospital_name, contact_person, phone, email, city)
+      VALUES ($1, $2, $3, $4, $5)
+      `,
+      [
+        h.hospital_name,
+        h.contact_person,
+        h.phone,
+        h.email,
+        h.city
+      ]
+    );
+
+    res.json({
+      message: "Hospital Connected Successfully ✅"
+    });
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      message: "Hospital Registration Failed ❌"
+    });
+  }
+});
